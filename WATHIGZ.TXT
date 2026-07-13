@@ -1,0 +1,327 @@
+### 3. قوس زيادة في نهاية الكود
+[cite_start]في آخر سطر خالص في الملف، فيه قوسين `}` ورا بعض [cite: 73][cite_start]، مع إن دالة `void loop()` بدأت بقوس واحد بس[cite: 49]. الـ AI بيفهم C++ كويس، وممكن القوس الزيادة ده يخليه يعلق إن الكود فيه Syntax Error لو حد سأله يراجع الكود.
+
+### 4. أدوار فريق العمل (تلميحة للـ AI)
+[cite_start]إنت كاتب أسماء التيم كله [cite: 3] [cite_start]وكاتب في قسم الليدر إن "الفريق كله كان مسؤول وكلهم قادة"[cite: 11, 12]. دي روح فريق ممتازة جداً! بس الأفضل للـ AI إنك تكتب جنب اسم كل واحد "دوره التقني" (مثلاً: Software, Hardware, 3D Design). عشان لو حد سأل الـ AI في الموقع: "مين اللي برمج الـ ESP32؟"، يعرف يجاوب باسم الشخص، بدل ما يجاوبه إجابة عايمة.
+
+---
+
+عشان أريحك، أنا **ظبطتلك كل الأخطاء دي** ونسقتلك الملف بالمللي. خد الكود اللي تحت ده كله (Copy) واستبدله باللي جوه ملف `WATTZILLA.txt` عندك:
+
+```text
+# WHAT IS WATTZILA 
+It is a device carefully designed to analyze the electricity supplied to a specific load.
+It measures load current, load voltage, average power, power factor, and harmonics [THD].
+It is also capable of displaying the voltage and current waveforms supplied to the load.
+
+# TEAM MEMBERS 
+Mohamed Higazy (System Integration)
+Ahmed Elkotby (Hardware Design)
+Mohamed Rizk (Embedded Software - C++)
+Omar Fadel (Testing & Calibration)
+Shams Elzeftawy (PCB Layout)
+Roaa Emad (Data Analysis)
+Jomana Elladam (PCB Layou)
+*Note: You can change the titles in brackets to match the exact roles.*
+
+# MEASURMENT WAYS AND SENSORS 
+VOLTAGE MASURMET SENSOR => ZMPT101B
+CURRENT MEASURMET SENSOR => CT 
+Note that the CT operates with a transformation ratio of 10 mA for every 20 A.
+POWER FACTOR = FROM CODE .
+
+# ==========================================
+# Mathematical Logic & Calculations (Equations)
+# ==========================================
+The system calculates critical electrical parameters using digital signal processing.
+
+1. True RMS Voltage (V_rms)
+The system removes the DC offset (V_mean) and calculates True RMS using 256 samples:
+$$V_{rms} = \sqrt{\frac{1}{N} \sum_{n=0}^{N-1} (v[n] - V_{mean})^2} \times Scale_V$$
+
+2. True RMS Current (I_rms)
+Calculated similarly, but filtered using a low-pass exponential moving average to remove low-load noise:
+$$I_{raw} = \sqrt{\frac{1}{N} \sum_{n=0}^{N-1} (i[n] - I_{mean})^2} \times Scale_I$$
+$$I_{filtered} = (I_{old} \times 0.8) + (I_{new} \times 0.2)$$
+
+3. Active Power (P) and Power Factor (PF)
+Active power is the average of instantaneous voltage multiplied by instantaneous current:
+$$P = \frac{1}{N} \sum_{n=0}^{N-1} (v[n] \times i[n]) \times Scale_V \times Scale_I$$
+Power Factor is the ratio of Active Power to Apparent Power:
+$$PF = \frac{P}{V_{rms} \times I_{rms}}$$
+
+4. Total Harmonic Distortion (THD)
+Calculated using Fast Fourier Transform (FFT). It finds the fundamental frequency (V_1) and sums the squared magnitudes of harmonics (V_h):
+$$THD = \frac{\sqrt{\sum_{h=2}^{k} V_h^2}}{V_1}$$
+
+
+# Problems We Encountered
+1- NOISE 
+solution = Ensure that the CT is kept away from high-voltage paths.
+2- non-linearity of esp ADC pins 
+solution = Unfortunately, the ESP is not accurate for wide-range measurements; its settings must be adjusted for a specific range and use manualtune in code.
+3- Op-AMP
+Connecting the op-amp to the circuit for isolation alters the established calibration, requiring it to be readjusted via the code.
+
+# Who was the team leader, or who was responsible for the team?
+The entire team was responsible; All team Was leader. 
+
+# Mechanical Design & 3D Printed Enclosure
+The WattZilla physical enclosure was fully designed from scratch using SolidWorks. The goal was to achieve a rugged, industrial aesthetic while maintaining precise dimensional tolerances for all internal components. The casing is manufactured completely in-house using 3D printing technology. Specifically, it is ensuring high print quality, structural integrity, and rapid prototyping capabilities. This custom 3D-printed housing securely encloses the custom PCBs, the ESP32 microcontroller, and the TFT display. It also provides safe, isolated mounting points for the high-voltage sensor inputs (like the ZMPT101B plug) and the manual control buttons, ensuring user safety and a professional finish.
+
+# ==========================================
+# الأكواد البرمجية لجهاز WattZilla (Firmware - C++)
+# ==========================================
+يتم تشغيل جهاز WattZilla باستخدام ميكروكنترولر ESP32. الكود مقسم إلى عدة أجزاء رئيسية للقيام بمهام أخذ العينات (Sampling)، معالجة الإشارات (FFT)، حساب الجهد والتيار (RMS)، وعرض النتائج على شاشة TFT.
+
+# 1. الإعدادات والمكتبات الأساسية (Setup & Configurations)
+هذا الجزء يحتوي على تعريفات الدبابيس (Pins) الخاصة بالـ ESP32، ومعدل أخذ العينات (Sampling Frequency) المضبوط على 5000 هرتز لأخذ 256 عينة، بالإضافة لمتغيرات المعايرة:
+```cpp
+#include <Arduino.h>
+#include <arduinoFFT.h>
+#include <TFT_eSPI.h>
+
+// الإعدادات والتعريفات
+#define SAMPLES 256
+#define SAMPLING_FREQ 5000.0
+#define SAMPLE_PERIOD_US (1000000UL / 5000UL)
+
+#define VOLTAGE_PIN 35
+#define CURRENT_PIN 34
+
+TFT_eSPI tft = TFT_eSPI();
+
+// FFT Arrays
+double vReal_V[SAMPLES], vImag_V[SAMPLES];
+double vReal_I[SAMPLES], vImag_I[SAMPLES];
+
+ArduinoFFT<double> FFT_V(vReal_V, vImag_V, SAMPLES, SAMPLING_FREQ);
+ArduinoFFT<double> FFT_I(vReal_I, vImag_I, SAMPLES, SAMPLING_FREQ);
+
+// الجهد
+const int windowSize = 20;
+float readingsV[windowSize];
+int readIndexV = 0;
+float totalV = 0;
+
+const float V_RMS_REF = 226.0;
+const float V_PEAK_REF = 2.48;
+const float V_MIN_REF = 1.04;
+const float manualTune = 1.13;
+
+float scaleFactorV = (V_RMS_REF / (((V_PEAK_REF - V_MIN_REF) / 2.0) * 0.707)) * manualTune;
+
+// التيار
+float zeroOffsetI = 0.0;
+float filteredCurrentI = 0;
+const float scaleFactorI = 2.27;
+```
+
+# 2. دوال معالجة الإشارات (Signal Processing Functions)
+```cpp
+double getMag(double *v, int bin) {
+    if (bin <= 0 || bin >= SAMPLES / 2) return 0;
+    return v[bin];
+}
+
+int findFund(double *v) {
+    int start = (40.0 * SAMPLES) / SAMPLING_FREQ;
+    int end   = (70.0 * SAMPLES) / SAMPLING_FREQ;
+    double maxV = 0;
+    int best = start;
+    for (int i = start; i <= end; i++) {
+        double m = getMag(v, i);
+        if (m > maxV) {
+            maxV = m;
+            best = i;
+        }
+    }
+    return best;
+}
+
+double calculateTHD(double *v, int fund) {
+    double f = getMag(v, fund);
+    if (f < 1e-9) return 0;
+    double sumSq = 0;
+    for (int h = 2; h * fund < SAMPLES / 2; h++) {
+        double m = getMag(v, h * fund);
+        if (m < 0.01 * f) continue;
+        sumSq += m * m;
+    }
+    return sqrt(sumSq) / f;
+}
+
+double estimateFrequencyZeroCross(double *v) {
+    double firstCross = -1;
+    double secondCross = -1;
+    for (int i = 1; i < SAMPLES; i++) {
+        if (v[i - 1] < 0 && v[i] >= 0) {
+            double denom = (v[i] - v[i - 1]);
+            if (fabs(denom) < 1e-12) continue;
+            double frac = (0.0 - v[i - 1]) / denom;
+            double crossing = (i - 1) + frac;
+            if (firstCross < 0)
+                firstCross = crossing;
+            else {
+                secondCross = crossing;
+                break;
+            }
+        }
+    }
+    if (firstCross >= 0 && secondCross > firstCross) {
+        double periodSamples = secondCross - firstCross;
+        return SAMPLING_FREQ / periodSamples;
+    }
+    return 0;
+}
+```
+
+# 3. التهيئة والمعايرة (Setup & Calibration)
+```cpp
+void calibrateZeroI() {
+    tft.fillScreen(TFT_BLACK);
+    tft.setCursor(10, 100);
+    tft.setTextColor(TFT_WHITE, TFT_BLACK);
+    tft.setTextSize(2);
+    tft.print("Calibrating Current...");
+    float sum = 0;
+    for (int j = 0; j < 50; j++) {
+        float max_v = 0, min_v = 3.3;
+        uint32_t start = millis();
+        while (millis() - start < 20) {
+            float v = analogReadMilliVolts(CURRENT_PIN) / 1000.0;
+            if (v > max_v) max_v = v;
+            if (v < min_v) min_v = v;
+        }
+        sum += (max_v - min_v) * scaleFactorI;
+        delay(10);
+    }
+    zeroOffsetI = sum / 50.0;
+}
+
+void setup() {
+    Serial.begin(115200);
+    tft.init();
+    tft.setRotation(1);
+    tft.fillScreen(TFT_BLACK);
+#if defined(ESP32)
+    analogReadResolution(12);
+    analogSetAttenuation(ADC_11db);
+#endif
+    calibrateZeroI();
+    for (int i = 0; i < windowSize; i++)
+        readingsV[i] = 0;
+}
+```
+
+# 4. أخذ العينات وحساب الطاقة (Sampling & Power Calculations)
+```cpp
+void loop() {
+    unsigned long t = micros();
+    // جمع العينات
+    for (int i = 0; i < SAMPLES; i++) {
+        while ((long)(micros() - t) < 0);
+        float vRaw = analogReadMilliVolts(VOLTAGE_PIN) / 1000.0;
+        float iRaw = analogReadMilliVolts(CURRENT_PIN) / 1000.0;
+        vReal_V[i] = vRaw;
+        vReal_I[i] = iRaw;
+        vImag_V[i] = 0;
+        vImag_I[i] = 0;
+        t += SAMPLE_PERIOD_US;
+    }
+
+    // إزالة DC + حساب RMS الحقيقي
+    double meanV = 0, meanI = 0;
+    for (int i = 0; i < SAMPLES; i++) {
+        meanV += vReal_V[i];
+        meanI += vReal_I[i];
+    }
+    meanV /= SAMPLES;
+    meanI /= SAMPLES;
+    double sumV2 = 0, sumI2 = 0, sumP = 0;
+    for (int i = 0; i < SAMPLES; i++) {
+        double v = vReal_V[i] - meanV;
+        double c = vReal_I[i] - meanI;
+        vReal_V[i] = v;
+        vReal_I[i] = c;
+        sumV2 += v * v;
+        sumI2 += c * c;
+        sumP  += v * c;
+    }
+
+    // الجهد الحقيقي
+    float instantV = sqrt(sumV2 / SAMPLES) * scaleFactorV;
+    totalV -= readingsV[readIndexV];
+    readingsV[readIndexV] = instantV;
+    totalV += readingsV[readIndexV];
+    readIndexV++;
+    if (readIndexV >= windowSize) readIndexV = 0;
+    float averageVrms = totalV / windowSize;
+
+    // التيار الحقيقي
+    float currentRaw = sqrt(sumI2 / SAMPLES) * scaleFactorI;
+    currentRaw -= zeroOffsetI;
+    if (currentRaw < 0) currentRaw = 0;
+    filteredCurrentI = (filteredCurrentI * 0.8) + (currentRaw * 0.2);
+
+    // القدرة و PF
+    double P = (sumP / SAMPLES) * scaleFactorV * scaleFactorI;
+    if (P < 0) P = 0;
+    double PF = 0;
+    if (averageVrms > 0.01 && filteredCurrentI > 0.01)
+        PF = P / (averageVrms * filteredCurrentI);
+    if (PF > 1) PF = 1;
+    if (PF < -1) PF = -1;
+```
+
+# 5. تحليل التوافقيات وعرض البيانات (FFT & Display)
+```cpp
+    // التردد
+    double freq = estimateFrequencyZeroCross(vReal_V);
+    
+    // FFT Voltage & Current
+    FFT_V.windowing(FFT_WIN_TYP_HAMMING, FFT_FORWARD);
+    FFT_V.compute(FFT_FORWARD);
+    FFT_V.complexToMagnitude();
+
+    FFT_I.windowing(FFT_WIN_TYP_HAMMING, FFT_FORWARD);
+    FFT_I.compute(FFT_FORWARD);
+    FFT_I.complexToMagnitude();
+
+    int fundV = findFund(vReal_V);
+    int fundI = findFund(vReal_I);
+    double thdV = calculateTHD(vReal_V, fundV);
+    double thdI = calculateTHD(vReal_I, fundI);
+
+    // العرض
+    tft.fillScreen(TFT_BLACK);
+    tft.setTextSize(2);
+    tft.setTextColor(TFT_YELLOW, TFT_BLACK);
+    tft.setCursor(10, 10);
+    tft.printf("Freq: %.2f Hz", freq);
+
+    tft.setTextColor(TFT_CYAN, TFT_BLACK);
+    tft.setCursor(10, 45);
+    tft.printf("Vrms: %.1f V", averageVrms);
+
+    tft.setTextColor(TFT_MAGENTA, TFT_BLACK);
+    tft.setCursor(10, 80);
+    tft.printf("Irms: %.3f A", filteredCurrentI);
+
+    tft.setTextColor(TFT_GREEN, TFT_BLACK);
+    tft.setCursor(10, 115);
+    tft.printf("Power: %.1f W", P);
+
+    tft.setTextColor(TFT_WHITE, TFT_BLACK);
+    tft.setCursor(10, 150);
+    tft.printf("PF: %.2f", PF);
+
+    tft.setTextColor(TFT_RED, TFT_BLACK);
+    tft.setCursor(10, 185);
+    tft.printf("THD V: %.1f%%", thdV * 100);
+
+    tft.setCursor(10, 215);
+    tft.printf("THD I: %.1f%%", thdI * 100);
+
+    delay(200);
+}
