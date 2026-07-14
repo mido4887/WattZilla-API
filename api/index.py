@@ -1,5 +1,6 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import HTMLResponse  # تم إضافة هذا السطر
 from pydantic import BaseModel
 import google.generativeai as genai
 import os
@@ -7,13 +8,17 @@ import os
 # ==========================================
 # 1. إعداد الـ API Key
 # ==========================================
-# حط المفتاح بتاعك بين علامات التنصيص هنا
 api_key = os.environ.get("GEMINI_API_KEY")
-genai.configure(api_key=api_key) # ==========================================
-# 2. قراءة ملف معلومات المشروع
+genai.configure(api_key=api_key)
+
 # ==========================================
+# 2. قراءة ملف معلومات المشروع بشكل ديناميكي صح على Vercel
+# ==========================================
+base_dir = os.path.dirname(os.path.dirname(__file__))
+txt_path = os.path.join(base_dir, "WATHIGZ.txt")
+
 try:
-    with open("WATHIGZ.txt", "r", encoding="utf-8") as file:
+    with open(txt_path, "r", encoding="utf-8") as file:
         knowledge_base = file.read()
 except FileNotFoundError:
     knowledge_base = "Project information file not found."
@@ -21,7 +26,6 @@ except FileNotFoundError:
 # ==========================================
 # 3. إعداد الذكاء الاصطناعي (Gemini)
 # ==========================================
-# بنستخدم الموديل السريع وبنديله التعليمات الصارمة
 system_instruction = f"""
 You are 'WattZilla AI', the official AI assistant for the WattZilla Power Analyzer project.
 Use the following project documentation to answer user questions accurately.
@@ -46,7 +50,7 @@ app = FastAPI()
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],
-     allow_credentials=False,# يسمح لأي موقع يكلمه
+    allow_credentials=False,
     allow_methods=["*"],
     allow_headers=["*"],
 )
@@ -54,6 +58,22 @@ app.add_middleware(
 # هيكل الرسالة اللي جاية من الموقع
 class ChatRequest(BaseModel):
     message: str
+
+# ==========================================
+# 5. المسار الرئيسي لعرض صفحة الـ HTML (تمت إضافته)
+# ==========================================
+@app.get("/", response_class=HTMLResponse)
+async def serve_frontend():
+    html_path = os.path.join(base_dir, "WATTZILA2.HTML")
+    try:
+        with open(html_path, "r", encoding="utf-8") as f:
+            html_content = f.read()
+        return HTMLResponse(content=html_content, status_code=200)
+    except FileNotFoundError:
+        return HTMLResponse(
+            content="<h1>HTML file not found! Please make sure WATTZILA2.HTML is in the root directory.</h1>", 
+            status_code=404
+        )
 
 # المسار (Endpoint) اللي الموقع بيبعت عليه الأسئلة
 @app.post("/chat")
