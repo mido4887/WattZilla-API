@@ -9,7 +9,7 @@ import os
 # ==========================================
 # حط المفتاح بتاعك بين علامات التنصيص هنا
 api_key = os.environ.get("GEMINI_API_KEY")
-genai.configure(api_key=api_key)# ==========================================
+genai.configure(api_key=api_key) # ==========================================
 # 2. قراءة ملف معلومات المشروع
 # ==========================================
 try:
@@ -45,7 +45,8 @@ app = FastAPI()
 # تفعيل الـ CORS عشان الموقع (HTML) يقدر يكلم السيرفر بدون مشاكل أمنية
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"], # يسمح لأي موقع يكلمه
+    allow_origins=["*"],
+     allow_credentials=False,# يسمح لأي موقع يكلمه
     allow_methods=["*"],
     allow_headers=["*"],
 )
