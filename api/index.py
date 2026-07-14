@@ -1,6 +1,6 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import HTMLResponse  # تم إضافة هذا السطر
+from fastapi.responses import HTMLResponse, FileResponse  # زودنا FileResponse هنا
 from pydantic import BaseModel
 import google.generativeai as genai
 import os
@@ -12,7 +12,7 @@ api_key = os.environ.get("GEMINI_API_KEY")
 genai.configure(api_key=api_key)
 
 # ==========================================
-# 2. قراءة ملف معلومات المشروع بشكل ديناميكي صح على Vercel
+# 2. قراءة ملف معلومات المشروع
 # ==========================================
 base_dir = os.path.dirname(os.path.dirname(__file__))
 txt_path = os.path.join(base_dir, "WATHIGZ.txt")
@@ -46,7 +46,6 @@ model = genai.GenerativeModel(
 # ==========================================
 app = FastAPI()
 
-# تفعيل الـ CORS عشان الموقع (HTML) يقدر يكلم السيرفر بدون مشاكل أمنية
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],
@@ -55,12 +54,11 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# هيكل الرسالة اللي جاية من الموقع
 class ChatRequest(BaseModel):
     message: str
 
 # ==========================================
-# 5. المسار الرئيسي لعرض صفحة الـ HTML (تمت إضافته)
+# 5. مسار الصفحة الرئيسية (HTML)
 # ==========================================
 @app.get("/", response_class=HTMLResponse)
 async def serve_frontend():
@@ -75,11 +73,22 @@ async def serve_frontend():
             status_code=404
         )
 
-# المسار (Endpoint) اللي الموقع بيبعت عليه الأسئلة
+# ==========================================
+# 6. مسار قراءة الصور والملفات (ده اللي هيشغل الصور)
+# ==========================================
+@app.get("/{filename}")
+async def get_file(filename: str):
+    file_path = os.path.join(base_dir, filename)
+    if os.path.exists(file_path):
+        return FileResponse(file_path)
+    return HTMLResponse(content="File not found", status_code=404)
+
+# ==========================================
+# 7. مسار الشات
+# ==========================================
 @app.post("/chat")
 async def chat_endpoint(request: ChatRequest):
     try:
-        # إرسال السؤال للذكاء الاصطناعي
         response = model.generate_content(request.message)
         return {"reply": response.text}
     except Exception as e:
