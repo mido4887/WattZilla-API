@@ -15,7 +15,7 @@ genai.configure(api_key=api_key)
 # 2. قراءة ملف معلومات المشروع
 # ==========================================
 base_dir = os.path.dirname(os.path.dirname(__file__))
-txt_path = os.path.join(base_dir, "WATHIGZ.txt")
+txt_path = os.path.join(base_dir, "WATHIGZ.TXT")
 
 try:
     with open(txt_path, "r", encoding="utf-8") as file:
