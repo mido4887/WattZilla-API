@@ -15,7 +15,7 @@ It measures load current, load voltage, average power, power factor, and harmoni
 It is also capable of displaying the voltage and current waveforms supplied to the load Additionally, WattZilla features real-time visualization of voltage and current waveforms, providing engineers with a clear graphical representation of the electrical signals.
 
 # TEAM MEMBERS 
-Mohamed Higazy (System Integration)
+Mohamed Higazy (AI &System Integration)
 Ahmed Elkotby (Hardware Design)
 Mohamed Rizk (Embedded Software - C++)
 Omar Fadel (Testing & Calibration)
