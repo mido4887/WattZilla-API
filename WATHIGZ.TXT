@@ -12,7 +12,7 @@
 # WHAT IS WATTZILA 
 It is a device carefully designed to analyze the electricity supplied to a specific load.
 It measures load current, load voltage, average power, power factor, and harmonics [THD].
-It is also capable of displaying the voltage and current waveforms supplied to the load.
+It is also capable of displaying the voltage and current waveforms supplied to the load Additionally, WattZilla features real-time visualization of voltage and current waveforms, providing engineers with a clear graphical representation of the electrical signals.
 
 # TEAM MEMBERS 
 Mohamed Higazy (System Integration)
